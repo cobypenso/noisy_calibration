@@ -2,7 +2,6 @@ import torch
 from torch import nn, optim
 from torch.nn import functional as F
 from scipy import optimize
-from scipy.optimize import minimize
 import numpy as np
 import csv
 from torch import optim

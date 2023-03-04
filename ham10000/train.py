@@ -79,7 +79,7 @@ def train_model(model, train_data_loader, valid_data_loader, optimizer,
         if acc_val > best_acc_val:
             best_acc_val = acc_val
             best_ckpt_epoch = epoch
-            best_model_path = f'/dsi/scratch/home/dsi/cobypenso/phd/ham10000/ckpts/eps_{epsilon}/new_model_{model_name}_epoch_{epoch}_{n_epochs}_lr_{lr}_bs_{batch_size}.pth'
+            best_model_path = f'ham10000/ckpts/eps_{epsilon}/new_model_{model_name}_epoch_{epoch}_{n_epochs}_lr_{lr}_bs_{batch_size}.pth'
             torch.save(model, best_model_path)
 
     end_time = time.time()

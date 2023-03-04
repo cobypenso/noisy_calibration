@@ -66,9 +66,9 @@ transform = transforms.Compose([
 )
 
 def get_cxr14_data(batch_size = 16, train_epsilon = 0, valid_epsilon = 0):
-    train_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/train.csv')
-    valid_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/valid.csv')
-    test_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/test.csv')
+    train_df = pd.read_csv('/cxr14/train.csv')
+    valid_df = pd.read_csv('/cxr14/valid.csv')
+    test_df = pd.read_csv('/cxr14/test.csv')
 
     if train_epsilon > 0:
         train_df['label'] = add_noise_to_labels(train_df['label'], n_classes=15, epsilon=train_epsilon)
@@ -88,9 +88,9 @@ def get_cxr14_data(batch_size = 16, train_epsilon = 0, valid_epsilon = 0):
 
 
 def get_cxr14_datasets(batch_size = 16, train_epsilon = 0, valid_epsilon = 0):
-    train_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/train.csv')
-    valid_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/valid.csv')
-    test_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/test.csv')
+    train_df = pd.read_csv('/cxr14/train.csv')
+    valid_df = pd.read_csv('/cxr14/valid.csv')
+    test_df = pd.read_csv('/cxr14/test.csv')
 
     dsetTrain = CustomDataset(train_df, train_transform) 
     dsetVal = CustomDataset(valid_df, test_transform) 
@@ -101,8 +101,8 @@ def get_cxr14_datasets(batch_size = 16, train_epsilon = 0, valid_epsilon = 0):
 
 
 def prepare_data():
-    all_xray_df = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/datasets/cxr14/Data_Entry_2017.csv')
-    all_image_paths = {os.path.basename(x): x for x in glob(os.path.join('/dsi/scratch/home/dsi/cobypenso/datasets/cxr14', 'images*', '*', '*.png'))}
+    all_xray_df = pd.read_csv('/cxr14/Data_Entry_2017.csv')
+    all_image_paths = {os.path.basename(x): x for x in glob(os.path.join('/datasets/cxr14', 'images*', '*', '*.png'))}
     print('Scans found:', len(all_image_paths), ', Total Headers', all_xray_df.shape[0])
     all_xray_df['path'] = all_xray_df['Image Index'].map(all_image_paths.get)
     label_counts = all_xray_df['Finding Labels'].value_counts()[:15]
@@ -203,7 +203,7 @@ def prepare_data():
     train_df = train_df.drop('category_count', 1)
     valid_df = valid_df.drop('category_count', 1)
     test_df = test_df.drop('category_count', 1)
-    train_df.to_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/train.csv')
-    valid_df.to_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/valid.csv')
-    test_df.to_csv('/dsi/scratch/home/dsi/cobypenso/phd/cxr14/test.csv')
+    train_df.to_csv('/cxr14/train.csv')
+    valid_df.to_csv('/cxr14/valid.csv')
+    test_df.to_csv('/cxr14/test.csv')
 

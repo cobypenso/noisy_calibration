@@ -95,7 +95,6 @@ if __name__ == "__main__":
     parser.add_argument("--model_path", type=str)
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--epsilon", type=float, default=0.2)
-    parser.add_argument("--result_path", type=str, default="models_sweep_noisy_calibration")
     parser.add_argument("--opt_critic", type = str, default='adaece', choices= ['ece', 'adaece'])
     parser.add_argument("--seed", type=int, default=None)
 
@@ -155,8 +154,8 @@ if __name__ == "__main__":
 
 
     print ('load logits')
-    valid_logits = torch.load(args.result_path.replace('ece/', '') + 'valid_logits.pt') 
-    test_logits = torch.load(args.result_path.replace('ece/', '')  + 'test_logits.pt')
+    valid_logits = torch.load('valid_logits.pt') 
+    test_logits = torch.load('test_logits.pt')
     print ('Valid size:', len(valid_logits))
     print ('Test size:', len(test_logits))
     

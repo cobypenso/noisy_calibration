@@ -16,11 +16,7 @@ from models import *
 import medmnist
 from medmnist import INFO, Evaluator
 
-# import random
-# random.seed(42)
-# np.random.seed(42)
-# torch.manual_seed(42)
-# torch.cuda.manual_seed_all(42)
+
 def main(data_flag, output_root, num_epochs, gpu_ids, batch_size, download, model_name, resize, as_rgb, model_path, run):
 
     lr = 0.001
@@ -38,7 +34,7 @@ def main(data_flag, output_root, num_epochs, gpu_ids, batch_size, download, mode
     
     output_root = os.path.join(output_root, data_flag, time.strftime("%y%m%d_%H%M%S"))
 
-    output_root = f'/dsi/scratch/home/dsi/cobypenso/phd/pathmnist/ckpts/eps_0.0/{model_name}'
+    output_root = f'pathmnist/ckpts/eps_0.0/{model_name}'
     if not os.path.exists(output_root):
         os.makedirs(output_root)
 
@@ -89,13 +85,6 @@ def main(data_flag, output_root, num_epochs, gpu_ids, batch_size, download, mode
     else:
         model, _ = get_model(model_name = model_name, num_classes = n_classes)
         model.to(device)
-    
-    # if model_flag == 'resnet18':
-    #     model =  resnet18(pretrained=False, num_classes=n_classes) if resize else ResNet18(in_channels=n_channels, num_classes=n_classes)
-    # elif model_flag == 'resnet50':
-    #     model =  resnet50(pretrained=False, num_classes=n_classes) if resize else ResNet50(in_channels=n_channels, num_classes=n_classes)
-    # else:
-    #     raise NotImplementedError
 
     model = model.to(device)
 
@@ -143,7 +132,6 @@ def main(data_flag, output_root, num_epochs, gpu_ids, batch_size, download, mode
         
         train_metrics = test(model, train_evaluator, train_loader_at_eval, task, criterion, device, run)
         val_metrics = test(model, val_evaluator, val_loader, task, criterion, device, run)
-        # test_metrics = test(model, test_evaluator, test_loader, task, criterion, device, run)
         
         scheduler.step()
         
@@ -153,8 +141,6 @@ def main(data_flag, output_root, num_epochs, gpu_ids, batch_size, download, mode
             log_dict[key] = train_metrics[i]
         for i, key in enumerate(val_logs):
             log_dict[key] = val_metrics[i]
-        # for i, key in enumerate(test_logs):
-        #     log_dict[key] = test_metrics[i]
 
         for key, value in log_dict.items():
             pass
@@ -207,7 +193,6 @@ def train(model, train_loader, task, criterion, optimizer, device):
             loss = criterion(outputs, targets)
 
         total_loss.append(loss.item())
-        # writer.add_scalar('train_loss_logs', loss.item(), iteration)
         iteration += 1
 
         loss.backward()

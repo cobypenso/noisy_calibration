@@ -51,14 +51,13 @@ class HAM10000(Dataset):
 
         return X, y
 
-# def get_ham10000_datasets():
 
 def get_ham10000(batch_size = 32, train_epsilon = 0, valid_epsilon = 0):
     norm_mean = (0.49139968, 0.48215827, 0.44653124)
     norm_std = (0.24703233, 0.24348505, 0.26158768)
-    df_train = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/train.csv')
-    df_valid = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/valid.csv')
-    df_test = pd.read_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/test.csv')
+    df_train = pd.read_csv('datasets/ham10000/train.csv')
+    df_valid = pd.read_csv('datasets/ham10000/valid.csv')
+    df_test = pd.read_csv('datasets/ham10000/test.csv')
 
     if train_epsilon > 0:
         df_train['cell_type_idx'] = add_noise_to_labels(df_train['cell_type_idx'], n_classes=7, epsilon=train_epsilon)
@@ -84,7 +83,7 @@ def get_ham10000(batch_size = 32, train_epsilon = 0, valid_epsilon = 0):
     return train_loader, val_loader, test_loader
 
 def preprocess_ham10000(seed = 42):
-    data_dir = '/dsi/scratch/home/dsi/cobypenso/datasets/ham10000'
+    data_dir = 'datasets/ham10000'
     all_image_path = glob(os.path.join(data_dir, '*', '*.jpg'))
     imageid_path_dict = {os.path.splitext(os.path.basename(x))[0]: x for x in all_image_path}
     lesion_type_dict = {
@@ -149,9 +148,9 @@ def preprocess_ham10000(seed = 42):
     y = df_val['cell_type_idx']
     df_val, df_test = train_test_split(df_val, test_size=0.5, random_state=seed, stratify=y)
 
-    df_train.to_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/train.csv')
-    df_val.to_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/valid.csv')
-    df_test.to_csv('/dsi/scratch/home/dsi/cobypenso/datasets/ham10000/test.csv')
+    df_train.to_csv('datasets/ham10000/train.csv')
+    df_val.to_csv('datasets/ham10000/valid.csv')
+    df_test.to_csv('datasets/ham10000/test.csv')
 
     return df_train, df_val, df_test
 
