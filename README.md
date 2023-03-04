@@ -22,6 +22,8 @@ ece_after = ece_loss(test_logits/ opt_temperature, torch.tensor(test_labels))
 # Full workflow
 ### Step 1: Train model
 Train your classification model. Code for 3 datasets in paper are in CXR14/ham10000/path_mnist folders respecitevly.
+
+Run
 ```python {cxr14/ham10000/path_mnist}/python train.py```
 
 ### Step 2: Calibrate using noisy validation set
@@ -31,5 +33,6 @@ Run different types of calibration and test over the testset.
 * TS - Noise
 * NTS
 
+Run
 ```python noisy_calibration/calibrate.py```
 
