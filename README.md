@@ -3,10 +3,17 @@ Code release for "Calibrating a Medical Imaging Classification System based on N
 # Basic usage
 ```
 # Create optimizer instance
+
 scaler_optimizer = TempScalingOnAdaECE(noisy_labels = True, epsilon = epsilon)
+
+
 # Find best Temperature
+
 opt_temperature = scaler_optimizer.find_best_T(valid_logits, torch.tensor(noisy_val_labels), optimizer='brute')
+
+
 # Compute ECE on Testset with/without calibration
+
 ece_loss = ECELoss()
 ece_before = ece_loss(test_logits, torch.tensor(test_labels))
 ece_after = ece_loss(test_logits/ opt_temperature, torch.tensor(test_labels))
