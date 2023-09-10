@@ -6,11 +6,72 @@ import numpy as np
 import csv
 from torch import optim
 
+class VectorScalingModel(nn.Module):
+    def __init__(self, class_num=65):
+        super(VectorScalingModel, self).__init__()
+        self.W = Parameter(torch.ones(class_num))
+        self.b = Parameter(torch.zeros(class_num))
+
+    def forward(self, logits):
+        out = logits * self.W + self.b
+        return out
+
+class MatrixScalingModel(nn.Module):
+    def __init__(self, class_num=65):
+        super(MatrixScalingModel, self).__init__()
+        self.W = Parameter(torch.eye(class_num))
+        self.b = Parameter(torch.zeros(class_num))
+
+    def forward(self, logits):
+        out = torch.matmul(logits, self.W) + self.b
+        return out
+
+
+
+def VectorOrMatrixScaling(logits, labels, outputs_target, labels_target, cal_method=None):
+    nll_criterion = nn.CrossEntropyLoss().cuda()
+    adaece_criterion = AdaptiveECELoss().cuda()
+    ece_criterion = ECELoss().cuda()
+    class_num = logits.shape[1]
+
+    if cal_method == 'VectorScaling':
+        cal_model = VectorScalingModel(class_num=class_num).cuda()
+    elif cal_method == 'MatrixScaling':
+        cal_model = MatrixScalingModel(class_num=class_num).cuda()
+    optimizer = optim.SGD(cal_model.parameters(), lr=0.01, momentum=0.9)
+
+    logits = logits.cuda().float()
+    labels = labels.cuda().long()
+    outputs_target = outputs_target.cuda().float()
+    labels_target = labels_target.cuda().long()
+
+    # Calculate NLL and ECE before vector scaling or matrix scaling
+    before_calibration_nll = nll_criterion(outputs_target, labels_target).item()
+    before_calibration_ece = ece_criterion(outputs_target, labels_target).item()
+
+    max_iter = 5000 
+    for _ in range(max_iter):
+        optimizer.zero_grad()
+        out = cal_model(logits)
+        loss = nn.CrossEntropyLoss().cuda()(out, labels)
+        loss.backward()
+        optimizer.step()
+    final_output = cal_model(outputs_target)
+
+    # Calculate NLL and ECE after temperature scaling
+    after_calibration_nll = nll_criterion(final_output, labels_target).item()
+    after_calibration_adaece = adaece_criterion(final_output, labels_target).item()
+    after_calibration_ece = ece_criterion(final_output, labels_target).item()
+
+    return after_calibration_ece, after_calibration_adaece, after_calibration_nll
+
+
 class TempScalingOnECE(nn.Module):
-    def __init__(self, noisy_labels = False, epsilon = 0):
+    def __init__(self, noisy_labels = False, epsilon = 0, transition_matrix = None):
         super(TempScalingOnECE, self).__init__()
         self.noisy_labels = noisy_labels
         self.epsilon = epsilon
+        self.transition_matrix = transition_matrix
         self.temperature = 2.0
 
     def find_best_T(self, logits, labels, optimizer = 'fmin'):
@@ -21,11 +82,16 @@ class TempScalingOnECE(nn.Module):
             x = torch.from_numpy(x)
             scaled_logits = logits.float() / x
             if self.noisy_labels:
-                loss = ece_criterion.forward_with_noisy_labels(scaled_logits, labels, self.epsilon)
+                
+                if self.transition_matrix is not None:
+                    # If transition matrix is given
+                    loss = ece_criterion.forward_with_noisy_labels_and_transition_matrix(scaled_logits, labels, self.transition_matrix)
+                else:
+                    # Use the epsilon provided
+                    loss = ece_criterion.forward_with_noisy_labels(scaled_logits, labels, self.epsilon)
             else:   
                 loss = ece_criterion.forward(scaled_logits, labels)
             return loss
-
 
         if optimizer == 'fmin':
             optimal_parameter = optimize.fmin(eval, torch.Tensor([2.0]), disp=False)
@@ -41,10 +107,11 @@ class TempScalingOnECE(nn.Module):
 
 
 class TempScalingOnAdaECE(nn.Module):
-    def __init__(self, noisy_labels = False, epsilon = 0):
+    def __init__(self, noisy_labels = False, epsilon = 0, transition_matrix = None):
         super(TempScalingOnAdaECE, self).__init__()
         self.noisy_labels = noisy_labels
         self.epsilon = epsilon
+        self.transition_matrix = transition_matrix
         self.temperature = 2.0
 
     def find_best_T(self, logits, labels, optimizer = 'fmin'):
@@ -55,7 +122,13 @@ class TempScalingOnAdaECE(nn.Module):
             x = torch.from_numpy(x)
             scaled_logits = logits.float() / x
             if self.noisy_labels:
-                loss = ece_criterion.forward_with_noisy_labels(scaled_logits, labels, self.epsilon)
+                
+                if self.transition_matrix is not None:
+                    # If transition matrix is given
+                    loss = ece_criterion.forward_with_noisy_labels_and_transition_matrix(scaled_logits, labels, self.transition_matrix)
+                else:
+                    # Use the epsilon provided
+                    loss = ece_criterion.forward_with_noisy_labels(scaled_logits, labels, self.epsilon)
             else:   
                 loss = ece_criterion.forward(scaled_logits, labels)
             return loss
@@ -167,6 +240,36 @@ class ECELoss(nn.Module):
                 ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
         return ece
 
+    def forward_with_noisy_labels_and_transition_matrix(self, logits, labels, transition_matrix, num_classes = 10):
+        from sklearn.metrics import confusion_matrix
+        if self.LOGIT:
+            softmaxes = F.softmax(logits, dim=1)
+        else:
+            softmaxes = logits
+        confidences, predictions = torch.max(softmaxes, 1)
+        correctness = predictions.eq(labels)
+        confidences[confidences == 1] = 0.999999
+        ece = torch.zeros(1, device=logits.device)
+        
+        for bin_lower, bin_upper in zip(self.bin_lowers, self.bin_uppers):
+            # Calculated |confidence - accuracy| in each bin
+            in_bin = confidences.gt(bin_lower.item()) * confidences.le(bin_upper.item())
+
+            prop_in_bin = in_bin.float().mean()
+            if (prop_in_bin.item() > 0) and (in_bin.sum() > 20):
+                predictions_in_bin = predictions[in_bin]
+                labels_in_bin = labels[in_bin]
+                # Compute confusion matrix in bin
+                M = confusion_matrix(labels_in_bin, predictions_in_bin, labels = np.arange(num_classes), normalize='all')
+
+                # Compute "fixed" accuracy in bin -  A = M * inv(P)
+                accuracy_in_bin = np.trace(M * np.linalg.inv(transition_matrix))
+                accuracy_in_bin = min(accuracy_in_bin, 0.99)
+                accuracy_in_bin = max(accuracy_in_bin, 0.01)
+
+                avg_confidence_in_bin = confidences[in_bin].mean().float()
+                ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+        return ece
 
 
 class AdaptiveECELoss(nn.Module):
@@ -233,6 +336,41 @@ class AdaptiveECELoss(nn.Module):
                 # -- Fixing the noisy-accuracy -- #
                 accuracy_in_bin = (accuracy_in_bin - (epsilon / (num_classes-1))) / (1 - epsilon - (epsilon / (num_classes - 1)))
                 # ------------------------------- #
+
+                avg_confidence_in_bin = confidences[in_bin].mean().float()
+                ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
+        return ece
+
+    def forward_with_noisy_labels_and_transition_matrix(self, logits, labels, transition_matrix, num_classes = 10):
+        from sklearn.metrics import confusion_matrix
+        if self.LOGIT:
+            softmaxes = F.softmax(logits, dim=1)
+            confidences, predictions = torch.max(softmaxes, 1)
+        else:
+            confidences, predictions = torch.max(logits, 1)
+
+        confidences[confidences == 1] = 0.999999
+        correctness = predictions.eq(labels)
+        n, bin_boundaries = np.histogram(confidences.cpu().detach(), self.histedges_equalN(confidences.cpu().detach()))
+        self.bin_lowers = bin_boundaries[:-1]
+        self.bin_uppers = bin_boundaries[1:]
+        ece = torch.zeros(1, device=logits.device)
+
+        for bin_lower, bin_upper in zip(self.bin_lowers, self.bin_uppers):
+            # Calculated |confidence - accuracy| in each bin
+            in_bin = confidences.gt(bin_lower.item()) * confidences.le(bin_upper.item())
+
+            prop_in_bin = in_bin.float().mean()
+            if prop_in_bin.item() > 0:
+                predictions_in_bin = predictions[in_bin]
+                labels_in_bin = labels[in_bin]
+                # Compute confusion matrix in bin
+                M = confusion_matrix(labels_in_bin, predictions_in_bin, labels = np.arange(num_classes), normalize='all')
+
+                # Compute "fixed" accuracy in bin -  A = M * inv(P)
+                accuracy_in_bin = np.trace(M * np.linalg.inv(transition_matrix))
+                accuracy_in_bin = min(accuracy_in_bin, 0.99)
+                accuracy_in_bin = max(accuracy_in_bin, 0.01)
 
                 avg_confidence_in_bin = confidences[in_bin].mean().float()
                 ece += torch.abs(avg_confidence_in_bin - accuracy_in_bin) * prop_in_bin
